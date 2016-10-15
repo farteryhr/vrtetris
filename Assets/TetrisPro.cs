@@ -22,11 +22,14 @@ public class TetrisPro : MonoBehaviour
 	public GUISkin ghostskin = null;
 	public GUISkin menuskin = null;
 
+	public GameObject pfbBlock = null;
+	private float blockSize = 1.0f;
+
+	private GameObject[,] blockArray = new GameObject[MAX_Y,MAX_X];
 
 	private int width=0, height=0;
 
 	private int[,] stateArray = new int[MAX_Y, MAX_X];
-	private int[,] gfxArray = new int[MAX_Y, MAX_X];
 
 	float lastFallTime = 0.0f;
 
@@ -136,8 +139,8 @@ public class TetrisPro : MonoBehaviour
 		GUI.Box(new Rect (offsetX, offsetY, MAX_X * cs, MAX_Y * cs), "");
 		for (int Y = 0; Y<MAX_Y; Y++) {
 			for (int X=0; X<MAX_X; X++) {
-				if (gfxArray [Y, X] >= 0) {
-					GUI.skin = blockskin[gfxArray [Y, X]];
+				if (stateArray [Y, X] >= 0) {
+					GUI.skin = blockskin[stateArray [Y, X]];
 					GUI.Button (new Rect (offsetX + X * cs, offsetY + Y * cs, cs, cs), "");
 				}
 			}
@@ -182,17 +185,41 @@ public class TetrisPro : MonoBehaviour
 		}
 	}
 
-	void genGfx()
+	void farterRender ()
 	{
-		for (int Y = 0; Y<MAX_Y; Y++) {
-			for (int X=0; X<MAX_X; X++) {
-				gfxArray[Y,X]=-1;
-			}
+		int tmpY;
+		int tmpX;
+
+		for (int i = 0; i < 4; i++) {
+			tmpY = 3 + this.nextBlock.listY [i];
+			tmpX = MAX_X + 1 + this.nextBlock.listX [i];
+			nextBlock.blocks[i].transform.position=blockInNextPosition (tmpY,tmpX);
 		}
-		for (int Y = 0; Y<MAX_Y; Y++) {
-			for (int X=0; X<MAX_X; X++) {
-				if (stateArray [Y, X] >=0) {
-					gfxArray[Y,X] = stateArray [Y, X];
+
+		if(noCurClock){
+
+		} else {
+			this.ghostBlock.Y = this.GetGroundedY (this.curBlock.Y, this.curBlock.X);
+			this.ghostBlock.X = this.curBlock.X;
+			this.ghostBlock.listY = this.curBlock.listY;
+			this.ghostBlock.listX = this.curBlock.listX;
+
+			if(!this.hideCurBlock)
+			{
+				for (int i=0; i < this.ghostBlock.listY.GetLength(0); i++) {
+					tmpY = this.ghostBlock.Y + this.ghostBlock.listY [i];
+					tmpX = this.ghostBlock.X + this.ghostBlock.listX [i];
+					if (this.InField (tmpY, tmpX)) {
+						ghostBlock.blocks[i].transform.position=blockInFieldPosition (tmpY,tmpX);
+					}
+				}
+
+				for (int i=0; i < this.curBlock.listY.GetLength(0); i++) {
+					tmpY = this.curBlock.Y + this.curBlock.listY [i];
+					tmpX = this.curBlock.X + this.curBlock.listX [i];
+					if (this.InField (tmpY, tmpX)) {
+						curBlock.blocks[i].transform.position=blockInFieldPosition (tmpY,tmpX);
+					}
 				}
 			}
 		}
@@ -206,12 +233,11 @@ public class TetrisPro : MonoBehaviour
 			Time.fixedDeltaTime=1.0f/(float)EXP_FPS;
 		}
 		resetStateArray ();
-		
-		this.ghostBlock = new TetrisBlock (INIT_Y, INIT_X);
-		
+
 		this.nextBlock = new TetrisBlock (INIT_Y, INIT_X);
 		GenNewBlock ();
 		lastFallTime = myTime();
+		farterRender();
 	}
 	
 	void updateStateByBlock (TetrisBlock tmpBlock, int stateVal)
@@ -224,10 +250,20 @@ public class TetrisPro : MonoBehaviour
 			tmpX = tmpBlock.X + tmpBlock.listX [i];
 			if (this.InField (tmpY, tmpX)) {
 				stateArray [tmpY, tmpX] = stateVal;
+				blockArray[tmpY,tmpX]=tmpBlock.blocks[i];
+				blockArray[tmpY,tmpX].transform.position=blockInFieldPosition(tmpY,tmpX);
+				tmpBlock.blocks[i]=null;
 			}
 		}
 	}
 
+	Vector3 blockInFieldPosition(int y,int x){
+		return Vector3.right*blockSize*(x+0.5f-MAX_X/2.0f)+Vector3.down*blockSize*(y+0.5f-MAX_Y/2.0f);
+	}
+	Vector3 blockInNextPosition(int y,int x){
+		return Vector3.right*blockSize*(x+0.5f+MAX_X/2.0f)+Vector3.down*blockSize*(y+0.5f-MAX_Y/2.0f);
+	}
+	
 	void drawByBlock (TetrisBlock tmpBlock, int stateVal)
 	{
 
@@ -257,9 +293,7 @@ public class TetrisPro : MonoBehaviour
 		}
 
 		StageManager ();
-
-		genGfx();
-
+		farterRender();
 		frameCount++;
 	}
 
@@ -361,13 +395,22 @@ public class TetrisPro : MonoBehaviour
 				this.startGroundTime = myTime();
 			}
 			if (isHarddrop || myTime() - this.startGroundTime - REACT_TIME >= 0) {
+				// lock piece
 				updateStateByBlock(this.curBlock, this.curBlock.T);
+				this.curBlock=null;
+				for (int i=0; i < ghostBlock.listY.GetLength(0); i++) {
+					GameObject.Destroy(this.ghostBlock.blocks[i]);
+				}
+				this.ghostBlock=null;
+				// cleat full lines
 				this.countedFill = this.checkFilledLines ();
 				if (this.countedFill > 0) {
 					for (int Y = 0; Y<MAX_Y; Y++) {
 						if(filledYs[Y]==1){
 							for (int X=0; X<MAX_X; X++) {
 								stateArray[Y,X]=-1;
+								GameObject.Destroy(blockArray[Y,X],0.0f); // !!!!!!!!!!! 此处把方块推下来砸人
+								blockArray[Y,X]=null;
 							}
 						}
 					}
@@ -409,6 +452,7 @@ public class TetrisPro : MonoBehaviour
 			this.isFirstGrounded = true;
 			this.startGroundTime = myTime();
 		}
+		this.ghostBlock = new TetrisBlock (INIT_Y, INIT_X);
 	}
 	
 	void checkGameOver ()
@@ -512,6 +556,11 @@ public class TetrisPro : MonoBehaviour
 		for (int Y = delY + offset; Y >= 1; Y --) {
 			for (int X = 0; X < MAX_X; X ++) {
 				stateArray [Y, X] = stateArray [Y - 1, X];
+				blockArray[Y,X]=blockArray[Y-1,X];
+				blockArray[Y-1,X]=null;
+				if(blockArray[Y,X]!=null){
+					blockArray[Y,X].transform.position=blockInFieldPosition(Y,X);
+				}
 			}
 		}
 		for (int X = 0; X < MAX_X; X ++) {
@@ -694,11 +743,14 @@ public class TetrisBlock
 	};
 	public int[] listY = new int[4];
 	public int[] listX = new int[4];
+	public GameObject[] blocks = new GameObject[4];
 	public int Y;
 	public int X;
 	public int R;
 	public int T;
-	
+	public int displayType;
+
+	private static GameObject pfbBlock = (GameObject)Resources.Load("pfbBlock");
 	public TetrisBlock (int Y1, int X1)
 	{
 		this.Y = Y1;
@@ -707,6 +759,13 @@ public class TetrisBlock
 		this.T = (int)(UnityEngine.Random.value * blockListY.GetLength (0));
 		//type = 0;
 		LoadList(T,R);
+		for(int i = 0; i < listY.GetLength(0);i++){
+			blocks[i]=createBlock();
+		}
+	}
+
+	public GameObject createBlock(){
+		return MonoBehaviour.Instantiate(pfbBlock);
 	}
 
 	public void LoadList (int type, int rot)
