@@ -94,9 +94,6 @@ public class TetrisPro : MonoBehaviour
 			myLastInput[i] = myInput[i];
 			myInput[i]=Input.GetButton(BUTTON_NAMES[(int)i]);
 		}
-		SteamVR_Controller.Device device=SteamVR_Controller.Input(0);
-		Valve.VR.VRControllerState_t state = device.GetState();
-		contstat=state.ulButtonPressed.ToString();
 	}
 
 	bool myTrigger(Buttons button)
@@ -114,9 +111,10 @@ public class TetrisPro : MonoBehaviour
 		GUI.Box(
 			new Rect (
 				0, 0,
-				300, 20
-			),contstat)
-		;
+				100, 20
+			),
+			"SCORE: "+this.getScore().ToString()
+		);
 		if(gameOver){
 			GUI.Box (
 				new Rect (
@@ -294,9 +292,16 @@ public class TetrisPro : MonoBehaviour
 		return Vector3.right*blockSize*(x+0.5f+MAX_X/2.0f)+Vector3.down*blockSize*(y+0.5f-MAX_Y);
 	}
 	
-	void drawByBlock (TetrisBlock tmpBlock, int stateVal)
-	{
-
+	void ColliderMove(){
+		float getLife=GameObject.Find("headCollider").GetComponent<VRCollider>().getLife();
+		if(getLife!=0.0f){
+			if(Input.GetButton("MoveL") && transform.position.x>-5.5f){
+				transform.Translate(Vector3.left*0.05f);
+			}
+			if(Input.GetButton("MoveR") && transform.position.x<5.5f){
+				transform.Translate(Vector3.right*0.05f);
+			}
+		}
 	}
 	// Update is called once per frame
 	void FixedUpdate ()
@@ -327,6 +332,7 @@ public class TetrisPro : MonoBehaviour
 			StageManager ();
 			farterRender();
 		}
+		ColliderMove();
 		frameCount++;
 	}
 
@@ -755,8 +761,10 @@ public class TetrisPro : MonoBehaviour
 
 	void addScore(int s)
 	{
-		score[0]+=s*461550377;
-		score[1]+=s*2489371;
+		if(!gameOver){
+			score[0]+=s*461550377;
+			score[1]+=s*2489371;
+		}
 	}
 
 	int getScore()
