@@ -23,10 +23,11 @@ public class StartMenu : MonoBehaviour
 		var sw = Screen.width;
 		var sh = Screen.height;
 
-		if (GUI.Button (new Rect (50, sh / 5, sw - 100, sh / 5), "START")) {
+		GUI.Box(new Rect (50, sh / 7, sw - 100, sh / 7), "I wanna play the Tetris");
+		if (GUI.Button (new Rect (50, sh / 7*3, sw - 100, sh / 7), "START")) {
 			Application.LoadLevel ("TetrisPro");
 		}
-		if (GUI.Button (new Rect (50, sh / 5*3, sw - 100, sh / 5), "BYE")) {
+		if (GUI.Button (new Rect (50, sh / 7*5, sw - 100, sh / 7), "BYE")) {
 			Application.Quit ();
 		}
 

@@ -21,8 +21,6 @@ public class TetrisPro : MonoBehaviour
 	public GUISkin backgroundskin = null;
 	public GUISkin ghostskin = null;
 	public GUISkin menuskin = null;
-
-	public GameObject pfbBlock = null;
 	private float blockSize = 1.0f;
 
 	private GameObject[,] blockArray = new GameObject[MAX_Y,MAX_X];
@@ -53,6 +51,8 @@ public class TetrisPro : MonoBehaviour
 	TetrisBlock curBlock;
 	TetrisBlock nextBlock;
 	TetrisBlock ghostBlock;
+
+	bool gameOver = false;
 
 	const bool USE_FIXED = true;
 	const int LAST_TIME_COUNT = 11;
@@ -87,12 +87,16 @@ public class TetrisPro : MonoBehaviour
 		}
 	}
 
+	private string contstat;
 	void myButtonUpate()
 	{
 		for(int i=0;i<(int)Buttons.size;i++){
 			myLastInput[i] = myInput[i];
 			myInput[i]=Input.GetButton(BUTTON_NAMES[(int)i]);
 		}
+		SteamVR_Controller.Device device=SteamVR_Controller.Input(0);
+		Valve.VR.VRControllerState_t state = device.GetState();
+		contstat=state.ulButtonPressed.ToString();
 	}
 
 	bool myTrigger(Buttons button)
@@ -107,6 +111,31 @@ public class TetrisPro : MonoBehaviour
 
 	void OnGUI ()
 	{
+		GUI.Box(
+			new Rect (
+				0, 0,
+				300, 20
+			),contstat)
+		;
+		if(gameOver){
+			GUI.Box (
+				new Rect (
+					Screen.width * 0.3f, Screen.height * 0.4f,
+					Screen.width * 0.4f, Screen.height * 0.2f
+				),
+				"GAME OVER\n\nTetris"
+			);
+			if(GUI.Button (
+				new Rect (
+					Screen.width * 0.3f, Screen.height * 0.6f,
+					Screen.width * 0.4f, Screen.height * 0.05f
+				),
+				"back"
+			)){
+				Application.LoadLevel ("StartMenu");
+			}
+		}
+		return;
 		width = Screen.width;
 		height = Screen.height;
 
@@ -191,8 +220,8 @@ public class TetrisPro : MonoBehaviour
 		int tmpX;
 
 		for (int i = 0; i < 4; i++) {
-			tmpY = 3 + this.nextBlock.listY [i];
-			tmpX = MAX_X + 1 + this.nextBlock.listX [i];
+			tmpY = 5 + this.nextBlock.listY [i];
+			tmpX = 1 + this.nextBlock.listX [i];
 			nextBlock.blocks[i].transform.position=blockInNextPosition (tmpY,tmpX);
 		}
 
@@ -235,6 +264,7 @@ public class TetrisPro : MonoBehaviour
 		resetStateArray ();
 
 		this.nextBlock = new TetrisBlock (INIT_Y, INIT_X);
+		this.nextBlock.randomBlock();
 		GenNewBlock ();
 		lastFallTime = myTime();
 		farterRender();
@@ -258,10 +288,10 @@ public class TetrisPro : MonoBehaviour
 	}
 
 	Vector3 blockInFieldPosition(int y,int x){
-		return Vector3.right*blockSize*(x+0.5f-MAX_X/2.0f)+Vector3.down*blockSize*(y+0.5f-MAX_Y/2.0f);
+		return Vector3.right*blockSize*(x+0.5f-MAX_X/2.0f)+Vector3.down*blockSize*(y+0.5f-MAX_Y);
 	}
 	Vector3 blockInNextPosition(int y,int x){
-		return Vector3.right*blockSize*(x+0.5f+MAX_X/2.0f)+Vector3.down*blockSize*(y+0.5f-MAX_Y/2.0f);
+		return Vector3.right*blockSize*(x+0.5f+MAX_X/2.0f)+Vector3.down*blockSize*(y+0.5f-MAX_Y);
 	}
 	
 	void drawByBlock (TetrisBlock tmpBlock, int stateVal)
@@ -284,16 +314,19 @@ public class TetrisPro : MonoBehaviour
 	void realUpdate()
 	{
 		FpsManager();
-		myButtonUpate();
+		if(!gameOver){
+			
+			myButtonUpate();
 
-		if (noCurClock == false) {
-			TetrisMove ();
-		} else {
-			WaitingMove ();
+			if (noCurClock == false) {
+				TetrisMove ();
+			} else {
+				WaitingMove ();
+			}
+
+			StageManager ();
+			farterRender();
 		}
-
-		StageManager ();
-		farterRender();
 		frameCount++;
 	}
 
@@ -409,7 +442,20 @@ public class TetrisPro : MonoBehaviour
 						if(filledYs[Y]==1){
 							for (int X=0; X<MAX_X; X++) {
 								stateArray[Y,X]=-1;
-								GameObject.Destroy(blockArray[Y,X],0.0f); // !!!!!!!!!!! 此处把方块推下来砸人
+								//GameObject.Destroy(blockArray[Y,X],0.0f); // !!!!!!!!!!! 此处把方块推下来砸人
+
+								blockArray[Y,X].GetComponent<Rigidbody>().velocity=
+									Vector3.back*(UnityEngine.Random.value*5+2)+
+									Vector3.right*((UnityEngine.Random.value*6-3)+(X+0.5f-MAX_X/2.0f)*2)+
+									Vector3.up*(UnityEngine.Random.value*4+1);
+								blockArray[Y,X].GetComponent<Rigidbody>().angularVelocity=(
+									Vector3.back*(UnityEngine.Random.value*15-7)*this.countedFill+
+									Vector3.right*(UnityEngine.Random.value*15-7)*this.countedFill+
+									Vector3.up*(UnityEngine.Random.value*15-7)*this.countedFill
+								);
+								blockArray[Y,X].GetComponent<Rigidbody>().isKinematic=false;
+								blockArray[Y,X].GetComponent<BoxCollider>().enabled=true;
+
 								blockArray[Y,X]=null;
 							}
 						}
@@ -417,6 +463,7 @@ public class TetrisPro : MonoBehaviour
 					this.addScore(this.countedFill * this.countedFill * 100);
 					this.noCurClock = true;
 					startAnimationTime = myTime();
+					GameObject.Find("headCollider").GetComponent<VRCollider>().addLife((float)Math.Pow(this.countedFill,2)*0.1f);
 				} else {
 					this.countedFill = 0;
 
@@ -444,7 +491,8 @@ public class TetrisPro : MonoBehaviour
 	void GenNewBlock ()
 	{
 		this.curBlock = this.nextBlock;
-		this.nextBlock = new TetrisBlock (INIT_Y, INIT_X);
+		this.nextBlock = new TetrisBlock (INIT_Y, INIT_X, 0);
+		this.nextBlock.randomBlock();
 		this.isFirstGrounded = false;
 		checkGameOver ();
 		if (this.FALL_TIME==0.0f) {
@@ -452,13 +500,13 @@ public class TetrisPro : MonoBehaviour
 			this.isFirstGrounded = true;
 			this.startGroundTime = myTime();
 		}
-		this.ghostBlock = new TetrisBlock (INIT_Y, INIT_X);
+		this.ghostBlock = new TetrisBlock (INIT_Y, INIT_X, 1);
 	}
 	
 	void checkGameOver ()
 	{
 		if (IsGameOver ()) {
-			Application.LoadLevel ("StartMenu");
+			gameOver=true;
 		}
 	}
 
@@ -750,22 +798,50 @@ public class TetrisBlock
 	public int T;
 	public int displayType;
 
+	private static int[] randomBag = new int[7];
+	private static int bagPtr=7;
+
 	private static GameObject pfbBlock = (GameObject)Resources.Load("pfbBlock");
-	public TetrisBlock (int Y1, int X1)
+	private static GameObject pfbGhost = (GameObject)Resources.Load("pfbGhost");
+
+	public TetrisBlock (int Y1, int X1, int pfb=0)
 	{
 		this.Y = Y1;
 		this.X = X1;
 		this.R = 0;
-		this.T = (int)(UnityEngine.Random.value * blockListY.GetLength (0));
-		//type = 0;
-		LoadList(T,R);
+
 		for(int i = 0; i < listY.GetLength(0);i++){
-			blocks[i]=createBlock();
+			blocks[i]=createBlock(pfb);
 		}
 	}
 
-	public GameObject createBlock(){
-		return MonoBehaviour.Instantiate(pfbBlock);
+	public void randomBlock(){
+		if(bagPtr==7){
+			for(int i=0;i<7;i++){
+				randomBag[i]=i;
+			}
+			for(int i=0;i<7;i++){
+				int j=i+(int)(UnityEngine.Random.value*(7-i));
+				int t=randomBag[j];
+				randomBag[j]=randomBag[i];
+				randomBag[i]=t;
+			}
+			//for(int i=0;i<7;i++){
+			//	Debug.Log(randomBag[i]);
+			//}
+			bagPtr=0;
+		}
+		this.T = randomBag[bagPtr];
+		bagPtr++;
+		LoadList(T,R);
+	}
+
+	public GameObject createBlock(int pfb){
+		if(pfb==0){
+			return MonoBehaviour.Instantiate(pfbBlock);
+		}else{
+			return MonoBehaviour.Instantiate(pfbGhost);
+		}
 	}
 
 	public void LoadList (int type, int rot)
