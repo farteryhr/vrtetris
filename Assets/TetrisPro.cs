@@ -231,24 +231,24 @@ public class TetrisPro : MonoBehaviour
 			this.ghostBlock.listY = this.curBlock.listY;
 			this.ghostBlock.listX = this.curBlock.listX;
 
-			if(!this.hideCurBlock)
-			{
-				for (int i=0; i < this.ghostBlock.listY.GetLength(0); i++) {
-					tmpY = this.ghostBlock.Y + this.ghostBlock.listY [i];
-					tmpX = this.ghostBlock.X + this.ghostBlock.listX [i];
-					if (this.InField (tmpY, tmpX)) {
-						ghostBlock.blocks[i].transform.position=blockInFieldPosition (tmpY,tmpX);
-					}
-				}
-
-				for (int i=0; i < this.curBlock.listY.GetLength(0); i++) {
-					tmpY = this.curBlock.Y + this.curBlock.listY [i];
-					tmpX = this.curBlock.X + this.curBlock.listX [i];
-					if (this.InField (tmpY, tmpX)) {
-						curBlock.blocks[i].transform.position=blockInFieldPosition (tmpY,tmpX);
-					}
+			for (int i=0; i < this.ghostBlock.listY.GetLength(0); i++) {
+				tmpY = this.ghostBlock.Y + this.ghostBlock.listY [i];
+				tmpX = this.ghostBlock.X + this.ghostBlock.listX [i];
+				ghostBlock.blocks[i].transform.position=blockInFieldPosition (tmpY,tmpX);
+				if(this.hideCurBlock){
+					ghostBlock.blocks[i].transform.localScale=Vector3.zero;
 				}
 			}
+
+			for (int i=0; i < this.curBlock.listY.GetLength(0); i++) {
+				tmpY = this.curBlock.Y + this.curBlock.listY [i];
+				tmpX = this.curBlock.X + this.curBlock.listX [i];
+				curBlock.blocks[i].transform.position=blockInFieldPosition (tmpY,tmpX);
+				if(this.hideCurBlock){
+					curBlock.blocks[i].transform.localScale=Vector3.zero;
+				}
+			}
+
 		}
 	}
 	// Use this for initialization
@@ -280,6 +280,7 @@ public class TetrisPro : MonoBehaviour
 				stateArray [tmpY, tmpX] = stateVal;
 				blockArray[tmpY,tmpX]=tmpBlock.blocks[i];
 				blockArray[tmpY,tmpX].transform.position=blockInFieldPosition(tmpY,tmpX);
+				blockArray[tmpY,tmpX].transform.localScale=Vector3.one;
 				tmpBlock.blocks[i]=null;
 			}
 		}
@@ -291,18 +292,7 @@ public class TetrisPro : MonoBehaviour
 	Vector3 blockInNextPosition(int y,int x){
 		return Vector3.right*blockSize*(x+0.5f+MAX_X/2.0f)+Vector3.down*blockSize*(y+0.5f-MAX_Y);
 	}
-	
-	void ColliderMove(){
-		float getLife=GameObject.Find("headCollider").GetComponent<VRCollider>().getLife();
-		if(getLife!=0.0f){
-			if(Input.GetButton("MoveL") && transform.position.x>-5.5f){
-				transform.Translate(Vector3.left*0.05f);
-			}
-			if(Input.GetButton("MoveR") && transform.position.x<5.5f){
-				transform.Translate(Vector3.right*0.05f);
-			}
-		}
-	}
+
 	// Update is called once per frame
 	void FixedUpdate ()
 	{
@@ -332,7 +322,6 @@ public class TetrisPro : MonoBehaviour
 			StageManager ();
 			farterRender();
 		}
-		ColliderMove();
 		frameCount++;
 	}
 
@@ -834,9 +823,13 @@ public class TetrisBlock
 				randomBag[j]=randomBag[i];
 				randomBag[i]=t;
 			}
-			//for(int i=0;i<7;i++){
-			//	Debug.Log(randomBag[i]);
-			//}
+			/*
+			String tmp="";
+			for(int i=0;i<7;i++){
+				tmp+=randomBag[i].ToString();
+			}
+			Debug.Log(tmp);
+			*/
 			bagPtr=0;
 		}
 		this.T = randomBag[bagPtr];
